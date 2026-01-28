@@ -706,8 +706,8 @@ Transform:
   m_GameObject: {fileID: 1105992029}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.038, y: -0.495, z: 0}
-  m_LocalScale: {x: 0.21308352, y: 0.14770807, z: 1}
+  m_LocalPosition: {x: -0.035, y: -0.303, z: 0}
+  m_LocalScale: {x: 0.21640761, y: 0.061402243, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1732844560}
@@ -1164,19 +1164,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   speed: 2
   jumpForce: 5
-  rb: {fileID: 1732844558}
-  playerInput: {fileID: 1732844562}
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 8
-  groundCheck: {fileID: 1105992030}
-  groundCheckRadius: 0.2
-  animator: {fileID: 1732844561}
-  spriteRenderer: {fileID: 1732844559}
   fallMultiplier: 2.5
   lowJumpMultiplier: 2
   coyoteTime: 0.2
   jumpBufferTime: 0.2
+  groundCheck: {fileID: 1105992030}
+  groundCheckRadius: 0.2
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 8
+  rb: {fileID: 1732844558}
+  playerInput: {fileID: 1732844562}
+  animator: {fileID: 1732844561}
+  spriteRenderer: {fileID: 1732844559}
 --- !u!1 &1743242611
 GameObject:
   m_ObjectHideFlags: 0

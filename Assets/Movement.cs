@@ -1,62 +1,99 @@
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 public class Movement : MonoBehaviour
 {
+    [Header("Movement")]
     [SerializeField] private float speed = 2f;
+    
+    [Header("Jump")]
     [SerializeField] private float jumpForce = 5f;
-    [SerializeField] private Rigidbody2D rb;
-    [SerializeField] private PlayerInput playerInput;
-
-    [SerializeField] private LayerMask groundLayer;
-    [SerializeField] private Transform groundCheck;
-    [SerializeField] private float groundCheckRadius = 0.2f;
-
-    [SerializeField] private Animator animator;
-    [SerializeField] private SpriteRenderer spriteRenderer;
-
-    [Header("Jump Settings")]
     [SerializeField] private float fallMultiplier = 2.5f;
     [SerializeField] private float lowJumpMultiplier = 2f;
     [SerializeField] private float coyoteTime = 0.2f;
     [SerializeField] private float jumpBufferTime = 0.2f;
+    
+    [Header("Ground Check")]
+    [SerializeField] private Transform groundCheck;
+    [SerializeField] private float groundCheckRadius = 0.2f;
+    [SerializeField] private LayerMask groundLayer;
+    
+    [Header("Components")]
+    [SerializeField] private Rigidbody2D rb;
+    [SerializeField] private PlayerInput playerInput;
+    [SerializeField] private Animator animator;
+    [SerializeField] private SpriteRenderer spriteRenderer;
 
     private bool isGrounded;
-    private bool wasGrounded; // Önceki frame'de yerde olup olmadığını tutacak
     private float coyoteTimeCounter;
     private float jumpBufferCounter;
+    private bool hasJumped;
+    private InputAction moveAction;
+    private InputAction jumpAction;
 
-    private bool IsGrounded()
+    private bool isAttacking;
+    private InputAction attackAction;
+    private void Awake()
     {
-        Collider2D collider = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
-        return collider != null;
+        moveAction = playerInput.actions["Move"];
+        jumpAction = playerInput.actions["Jump"];
+        attackAction = playerInput.actions["Attack"];
     }
 
-    void Update()
+    private void Update()
     {
-        wasGrounded = isGrounded;
-        isGrounded = IsGrounded();
-        
-        animator.SetBool("isGrounded", isGrounded);
+        HandleGroundCheck();
+        HandleJumpInput();
+        HandleMovement();
+        HandleJump();
+        ApplyJumpPhysics();
+        UpdateAnimations();
+        HandleAttack();
+        checkAttackEnd();
+    }
 
-        // Coyote time sadece yerden havaya çıktığımızda başlar
-        // Zıpladıktan sonra değil
+
+    private void HandleAttack()
+    {
+        if (attackAction.triggered && !isAttacking)
+        {
+            isAttacking = true;
+            animator.SetBool("isAtacking", true);
+        }
+    }
+
+    private void checkAttackEnd()
+    {
+        if (isAttacking)
+        {
+            AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+            
+            if (stateInfo.IsTag("Attack") && stateInfo.normalizedTime >= 1.0f)
+            {
+                isAttacking = false;
+                animator.SetBool("isAtacking", false);
+            }
+        }
+    }
+    private void HandleGroundCheck()
+    {
+        bool wasGrounded = isGrounded;
+        isGrounded = Physics2D.Raycast(groundCheck.position, Vector2.down, groundCheckRadius, groundLayer);
+
         if (isGrounded)
         {
             coyoteTimeCounter = coyoteTime;
-        }
-        else if (wasGrounded && !isGrounded)
-        {
-            // Yerden yeni ayrıldık, coyote time başlat
-            coyoteTimeCounter = coyoteTime;
+            hasJumped = false;
         }
         else
         {
             coyoteTimeCounter -= Time.deltaTime;
         }
+    }
 
-        if (playerInput.actions["Jump"].triggered)
+    private void HandleJumpInput()
+    {
+        if (jumpAction.triggered && !hasJumped)
         {
             jumpBufferCounter = jumpBufferTime;
         }
@@ -64,39 +101,49 @@ public class Movement : MonoBehaviour
         {
             jumpBufferCounter -= Time.deltaTime;
         }
+    }
 
-        Vector2 movementInput = playerInput.actions["Move"].ReadValue<Vector2>();
-        Vector2 movement = new(movementInput.x * speed, rb.linearVelocity.y);
-        rb.linearVelocity = movement;
+    private void HandleMovement()
+    {
+        if (isAttacking) return;
 
-        animator.SetFloat("Velocity X", Mathf.Abs(movementInput.x));
-        animator.SetFloat("Velocity Y", rb.linearVelocity.y);
+        float horizontalInput = moveAction.ReadValue<Vector2>().x;
+        rb.linearVelocity = new Vector2(horizontalInput * speed, rb.linearVelocity.y);
 
-        if (jumpBufferCounter > 0f && coyoteTimeCounter > 0f)
+        if (horizontalInput != 0)
+        {
+            spriteRenderer.flipX = horizontalInput < 0;
+        }
+    }
+
+    private void HandleJump()
+    {
+        if (jumpBufferCounter > 0f && coyoteTimeCounter > 0f && !hasJumped)
         {
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
             jumpBufferCounter = 0f;
-            coyoteTimeCounter = 0f; // BU ÇOK ÖNEMLİ! Zıpladıktan sonra coyote time'ı sıfırla
-            Debug.Log("Jumped");
+            coyoteTimeCounter = 0f;
+            hasJumped = true;
         }
+    }
 
+    private void ApplyJumpPhysics()
+    {
         if (rb.linearVelocity.y < 0)
         {
             rb.linearVelocity += (fallMultiplier - 1) * Physics2D.gravity.y * Time.deltaTime * Vector2.up;
         }
-        else if (rb.linearVelocity.y > 0 && !playerInput.actions["Jump"].IsPressed())
+        else if (rb.linearVelocity.y > 0 && !jumpAction.IsPressed())
         {
             rb.linearVelocity += (lowJumpMultiplier - 1) * Physics2D.gravity.y * Time.deltaTime * Vector2.up;
         }
+    }
 
-        if (movementInput.x > 0)
-        {
-            spriteRenderer.flipX = false;
-        }
-        else if (movementInput.x < 0)
-        {
-            spriteRenderer.flipX = true;
-        }
+    private void UpdateAnimations()
+    {
+        animator.SetBool("isGrounded", isGrounded);
+        animator.SetFloat("Velocity X", Mathf.Abs(rb.linearVelocity.x));
+        animator.SetFloat("Velocity Y", rb.linearVelocity.y);
     }
 
     private void OnDrawGizmosSelected()
